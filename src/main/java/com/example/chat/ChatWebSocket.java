@@ -7,29 +7,26 @@ import javax.websocket.*;
 import javax.websocket.server.PathParam;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @ServerEndpoint("/chat/{roomName}/{userName}")
 public class ChatWebSocket {
 
-private static Map<String, Map<Session, String>> roomSessions = new ConcurrentHashMap<>();
     private Session session;
     private String roomName;
     private String userName;
+
     private Jedis subscriberJedis;
     private Thread subscriberThread;
 
     @OnOpen
-    public void onOpen(Session session, @PathParam("roomName") String roomName, @PathParam("userName") String userName) {
+    public void onOpen(Session session,
+                       @PathParam("roomName") String roomName,
+                       @PathParam("userName") String userName) throws IOException {
         this.session = session;
         this.roomName = roomName;
         this.userName = userName;
 
-        roomSessions.putIfAbsent(roomName, new ConcurrentHashMap<>());
-        roomSessions.get(roomName).put(session, userName);
-
-        // 订阅Redis频道，启动线程监听
+        // 启动Redis订阅线程，监听聊天室频道消息
         subscriberJedis = RedisManager.getJedis();
         subscriberThread = new Thread(() -> {
             subscriberJedis.subscribe(new JedisPubSub() {
@@ -47,16 +44,12 @@ private static Map<String, Map<Session, String>> roomSessions = new ConcurrentHa
         });
         subscriberThread.start();
 
-        // 发送历史消息给客户端
+        // 发送历史消息
         for (String msg : ChatRoomManager.getMessages(roomName)) {
-            try {
-                session.getBasicRemote().sendText(msg);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            session.getBasicRemote().sendText(msg);
         }
 
-        // 广播用户加入消息
+        // 广播加入消息
         String joinMsg = userName + " 加入聊天室";
         ChatRoomManager.saveMessage(roomName, joinMsg);
         publishMessage(joinMsg);
@@ -71,9 +64,6 @@ private static Map<String, Map<Session, String>> roomSessions = new ConcurrentHa
 
     @OnClose
     public void onClose() {
-        if (roomSessions.containsKey(roomName)) {
-            roomSessions.get(roomName).remove(session);
-        }
         String leaveMsg = userName + " 离开聊天室";
         ChatRoomManager.saveMessage(roomName, leaveMsg);
         publishMessage(leaveMsg);
@@ -86,14 +76,14 @@ private static Map<String, Map<Session, String>> roomSessions = new ConcurrentHa
         }
     }
 
+    @OnError
+    public void onError(Throwable error) {
+        error.printStackTrace();
+    }
+
     private void publishMessage(String message) {
         try (Jedis jedis = RedisManager.getJedis()) {
             jedis.publish("channel:chatroom:" + roomName, message);
         }
-    }
-
-    @OnError
-    public void onError(Throwable error) {
-        error.printStackTrace();
     }
 }

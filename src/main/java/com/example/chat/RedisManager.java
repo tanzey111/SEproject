@@ -1,16 +1,12 @@
 package com.example.chat;
 
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
 
 public class RedisManager {
-    private static JedisPool jedisPool = new JedisPool("localhost", 6379);
+    private static final String REDIS_HOST = "localhost";
+    private static final int REDIS_PORT = 6379;
 
     public static Jedis getJedis() {
-        return jedisPool.getResource();
-    }
-
-    public static void close(Jedis jedis) {
-        if (jedis != null) jedis.close();
+        return new Jedis(REDIS_HOST, REDIS_PORT);
     }
 }
