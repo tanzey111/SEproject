@@ -67,11 +67,14 @@ public class AlterServlet extends HttpServlet {
 
             String saveDir = getServletContext().getRealPath("/image");
             new File(saveDir).mkdirs();
+
             String savePath = saveDir + File.separator + fileName;
             filePart.write(savePath);
+            System.out.println(savePath);
 
             user.setImg(fileName);
             System.out.println("新头像已保存: " + fileName);
+
         }
 
         boolean isUsernameChanged = !oldUsername.equals(newUsername);
@@ -87,6 +90,8 @@ public class AlterServlet extends HttpServlet {
 
         User updatedUser = RedisUtil.getUserByUsername(newUsername);
         System.out.println("修改后邮箱: " + updatedUser.getEmail());
+        System.out.println(updatedUser.getName());
+        System.out.println(updatedUser.getImg());
 
         if (updateSuccess) {
             session.invalidate();
