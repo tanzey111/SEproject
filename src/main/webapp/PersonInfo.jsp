@@ -203,7 +203,7 @@
                 System.out.println(imgUrl);
     %>
     <!-- 头像 -->
-    <img src='<%=imgUrl%>' alt="用户头像" class="avatar">
+    <img src="<%=imgUrl%>" alt="用户头像" class="avatar">
     <!-- 用户信息 -->
     <div class="user-info">
         <h1><%=user.getName()%></h1>

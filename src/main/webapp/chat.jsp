@@ -13,16 +13,31 @@
 <button onclick="sendMessage()">发送</button>
 
 <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomName = urlParams.get('room');
-    const userName = prompt("请输入你的昵称") || '匿名';
+    // JSP变量写入JS字符串（避免EL解析冲突）
+    var contextPath = '<%= request.getContextPath() %>';
 
+    // 从URL中获取room参数
+    var urlParams = new URLSearchParams(window.location.search);
+    var roomName = urlParams.get('room');
+
+    // 用户昵称弹窗输入，默认“匿名”
+    var userName = prompt("请输入你的昵称") || '匿名';
+
+    // 设置聊天室标题
     document.getElementById('roomTitle').textContent = '聊天室：' + roomName;
 
-    const ws = new WebSocket(`ws://${location.host}/chat/${roomName}/${userName}`);
+    // 拼接WebSocket地址，注意用普通字符串拼接避免JSP EL干扰
+    var wsUrl = 'ws://' + location.host + contextPath + '/chat/'
+        + encodeURIComponent(roomName) + '/' + encodeURIComponent(userName);
 
+    console.log("WebSocket连接地址:", wsUrl);
+
+    // 创建WebSocket连接
+    var ws = new WebSocket(wsUrl);
+
+    // 接收到服务器消息，显示到聊天框
     ws.onmessage = function(event) {
-        const chatBox = document.getElementById('chatBox');
+        var chatBox = document.getElementById('chatBox');
         chatBox.innerHTML += '<div>' + event.data + '</div>';
         chatBox.scrollTop = chatBox.scrollHeight;
     };
@@ -35,8 +50,13 @@
         alert('连接关闭');
     };
 
+    ws.onerror = function(error) {
+        console.error('WebSocket错误:', error);
+    };
+
+    // 发送消息函数
     function sendMessage() {
-        const input = document.getElementById('msgInput');
+        var input = document.getElementById('msgInput');
         if (!input.value.trim()) return;
         ws.send(input.value);
         input.value = '';
