@@ -501,7 +501,7 @@
                 if (!response.ok) {
                     throw new Error('登出失败');
                 }
-                window.location.href = 'Sign.jsp';
+                window.location.href = 'home.jsp';
             })
             .catch(error => {
                 console.error('登出请求失败:', error);

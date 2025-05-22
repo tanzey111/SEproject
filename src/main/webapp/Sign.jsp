@@ -494,5 +494,15 @@
     <% } %>
   };
 </script>
+<script>
+  document.getElementById('loginForm').addEventListener('submit', function(e) {
+    const btn = this.querySelector('.btn-primary');
+    btn.textContent = '登录中...';
+    btn.disabled = true;
+
+    // 修改登录成功后的跳转
+    this.action = '<%=request.getContextPath()%>/UserServlet?op=login';
+  });
+</script>
 </body>
 </html>
