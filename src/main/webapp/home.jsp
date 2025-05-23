@@ -29,6 +29,7 @@
             }
         }
     </script>
+    </script>
     <style type="text/tailwindcss">
         @layer utilities {
             .content-auto { content-visibility: auto; }
@@ -107,6 +108,38 @@
             }
             .chat-room.active {
                 display: block;
+            }
+            /* 表情包面板样式 */
+            .emoji-panel {
+                display: none;
+                position: absolute;
+                bottom: 60px;
+                right: 0;
+                width: 280px;
+                max-height: 200px;
+                background-color: white;
+                border-radius: 8px;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                overflow-y: auto;
+                padding: 8px;
+                grid-template-columns: repeat(8, 1fr);
+                gap: 8px;
+                z-index: 100;
+            }
+            .emoji-item {
+                padding: 4px;
+                text-align: center;
+                cursor: pointer;
+                transition: background-color 0.2s;
+                border-radius: 4px;
+            }
+            .emoji-item:hover {
+                background-color: #f0f0f0;
+            }
+            .emoji-trigger {
+                cursor: pointer;
+                font-size: 20px;
+                margin-right: 8px;
             }
         }
     </style>
@@ -202,6 +235,7 @@
 <script>
     const contextPath = '<%= request.getContextPath() %>';
     const chatRoomContainer = document.getElementById('chatRoomContainer');
+    let emojiPanel = null;
 
     // 获取聊天室列表
     function fetchRooms() {
@@ -427,6 +461,163 @@
         }
     }
 
+    // 创建表情包面板
+    function createEmojiPanel() {
+        if (emojiPanel) return;
+
+        emojiPanel = document.createElement('div');
+        emojiPanel.id = 'emojiPanel';
+        emojiPanel.className = 'emoji-panel grid';
+
+        // 常用表情列表
+        const emojis = [
+            // 笑脸与情感
+            '😊', '😂', '😢', '😍', '😠', '😭', '😎', '😡', '😱', '🤔', '😜', '🤣', '🥰', '🥳', '😴', '🤓',
+            '😏', '😌', '😛', '😒', '😚', '😙', '😝', '😮', '😲', '😳', '🥺', '🤯', '🥱', '🤢', '😵', '🤥',
+
+            // 手势与动作
+            '👍', '👎', '👏', '🤗', '🤝', '👋', '👊', '✊', '🤞', '🤟', '🤘', '👌', '✌️', '🤙', '💪', '👐',
+            '🙌', '🙏', '🤲', '👂', '👃', '👀', '👅', '👄', '💋', '🤓', '🧠', '👁️', '🫥', '👀', '🫦', '🫧',
+
+            // 食物与饮料
+            '🍔', '🍟', '🌭', '🍕', '🌮', '🌯', '🥪', '🥗', '🍝', '🍜', '🍲', '🍛', '🍣', '🍱', '🥟', '🍤',
+            '🍙', '🍚', '🍘', '🍥', '🥠', '🍢', '🍡', '🍧', '🍨', '🍦', '🥧', '🍰', '🎂', '🍮', '🍭', '🍬',
+
+            // 动物与自然
+            '🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔',
+            '🐧', '🐦', '🐤', '🐣', '🐥', '🦆', '🦅', '🦉', '🦇', '🐺', '🐗', '🐴', '🦄', '🐝', '🐛', '🦋',
+
+            // 旅行与地点
+            '✈️', '🚁', '🚀', '⛵', '🚢', '🚗', '🚕', '🚙', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚐', '🚚',
+            '🚛', '🚜', '🛵', '🚲', '🛹', '🛶', '🚂', '🚊', '🚝', '🚞', '🚟', '🚠', '🚡', '🚪', '🏠', '🏡',
+
+            // 活动与娱乐
+            '🎮', '🎲', '🃏', '🎯', '🏀', '🏈', '🎾', '⚽', '⚾', '🥎', '🏐', '🏉', '🎱', '🏓', '🏸', '🥊',
+            '🥋', '🏹', '🛷', '⛷️', '🏂', '🏌️', '🏄', '🚣', '🚴', '🚵', '🤸', '🤼', '🎭', '🎨', '🎬', '🎞️',
+
+            // 天气与时间
+            '☀️', '🌙', '⭐', '☁️', '🌧️', '⛈️', '❄️', '🌨️', '🌩️', '⚡', '☔', '🌈', '🌪️', '💨', '🌫️', '🌊',
+            '🕛', '🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕜', '🕝', '🕞', '🕟', '🕠',
+
+            // 符号与标志
+            '❤️', '💔', '💯', '✨', '🎉', '🔯', '🔰', '♨️', '❇️', '〰️', '➿', '♻️', '⚠️', '🚫', '🔞', '💯',
+            '✅', '❎', '🔄', '🔀', '🔁', '🔂', '🔃', '⤴️', '⤵️', '⬅️', '➡️', '⬆️', '⬇️', '↔️', '↕️', '↩️', '↪️',
+
+            // 其他常用表情
+            '💩', '🔥', '✨', '💫', '🌟', '💧', '💨', '🌊', '🌪️', '❄️', '☃️', '⛄', '☄️', '⚡', '☔', '☕', '🍵',
+            '🍶', '🍾', '🍷', '🍸', '🍹', '🥤', '🧃', '🥛', '💊', '💉', '🚬', '⚰️', '⚱️', '🔫', '💣', '☢️', '☣️'
+        ];
+
+        // 生成表情按钮
+        emojis.forEach(emoji => {
+            const emojiItem = document.createElement('div');
+            emojiItem.className = 'emoji-item';
+            emojiItem.textContent = emoji;
+            emojiItem.onclick = () => insertEmoji(emoji);
+            emojiPanel.appendChild(emojiItem);
+        });
+
+        document.body.appendChild(emojiPanel);
+
+        // 点击其他区域关闭表情包面板
+        document.addEventListener('click', (e) => {
+            if (!emojiPanel.contains(e.target) &&
+                e.target.id !== 'emojiTrigger' &&
+                !e.target.classList.contains('emoji-trigger')) {
+                hideEmojiPanel();
+            }
+        });
+    }
+
+    // 显示表情包面板
+    function showEmojiPanel() {
+        if (!emojiPanel) createEmojiPanel();
+
+        // 找到消息输入框
+        const msgInput = document.querySelector('#chatRoomContainer iframe').contentDocument.getElementById('msgInput');
+        if (!msgInput) return;
+
+        // 计算表情包面板位置
+        const rect = msgInput.getBoundingClientRect();
+        emojiPanel.style.bottom = `${window.innerHeight - rect.bottom + window.scrollY + 10}px`;
+        emojiPanel.style.right = `${window.innerWidth - rect.right + window.scrollX}px`;
+        emojiPanel.style.display = 'grid';
+    }
+
+    // 隐藏表情包面板
+    function hideEmojiPanel() {
+        if (emojiPanel) {
+            emojiPanel.style.display = 'none';
+        }
+    }
+
+    // 切换表情包面板显示状态
+    function toggleEmojiPanel() {
+        if (emojiPanel && emojiPanel.style.display === 'grid') {
+            hideEmojiPanel();
+        } else {
+            showEmojiPanel();
+        }
+    }
+
+    // 插入表情到输入框
+    function insertEmoji(emoji) {
+        const iframe = document.querySelector('#chatRoomContainer iframe');
+        if (!iframe) return;
+
+        const input = iframe.contentDocument.getElementById('msgInput');
+        if (!input) return;
+
+        // 保存当前光标位置
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+
+        // 插入表情
+        input.value = input.value.substring(0, start) + emoji + input.value.substring(end);
+
+        // 恢复光标位置到表情后
+        input.focus();
+        input.setSelectionRange(start + 1, start + 1);
+
+        // 隐藏表情包面板
+        hideEmojiPanel();
+    }
+
+    // 监听iframe加载完成事件，添加表情包按钮
+    function setupEmojiButton() {
+        const iframe = document.querySelector('#chatRoomContainer iframe');
+        if (!iframe) return;
+
+        // 等待iframe加载完成
+        iframe.onload = () => {
+            try {
+                // 检查iframe中是否已有表情包按钮
+                if (iframe.contentDocument.getElementById('emojiTrigger')) return;
+
+                // 找到消息输入框和发送按钮
+                const msgInput = iframe.contentDocument.getElementById('msgInput');
+                const sendButton = iframe.contentDocument.querySelector('button[onclick="sendMessage()"]');
+
+                if (msgInput && sendButton) {
+                    // 创建表情包按钮
+                    const emojiButton = document.createElement('button');
+                    emojiButton.id = 'emojiTrigger';
+                    emojiButton.className = 'emoji-trigger bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors';
+                    emojiButton.innerHTML = '😀';
+                    emojiButton.onclick = toggleEmojiPanel;
+
+                    // 插入到发送按钮前
+                    sendButton.parentNode.insertBefore(emojiButton, sendButton);
+
+                    // 调整输入框宽度
+                    msgInput.style.width = '55%';
+                }
+            } catch (error) {
+                console.error('设置表情包按钮失败:', error);
+            }
+        };
+    }
+
     // 页面加载事件
     document.addEventListener('DOMContentLoaded', function() {
         fetchRooms();
@@ -434,6 +625,17 @@
         const room = urlParams.get('room');
         if (room) loadChatRoom(room);
         document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+
+        // 监听iframe加载，设置表情包按钮
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.addedNodes.length) {
+                    setupEmojiButton();
+                }
+            });
+        });
+
+        observer.observe(chatRoomContainer, { childList: true });
     });
 </script>
 </body>
