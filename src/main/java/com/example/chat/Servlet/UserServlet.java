@@ -97,7 +97,7 @@ public class UserServlet extends HttpServlet{
                 tokenCookie.setMaxAge(24 * 60 * 60); // 24小时
                 response.addCookie(tokenCookie);
                 request.getSession().setAttribute("username", user.getName());
-                response.sendRedirect("PersonInfo.jsp"); // 跳转到首页
+                response.sendRedirect("home.jsp"); // 跳转到首页
             }
         }
     }
