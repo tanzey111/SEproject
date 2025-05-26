@@ -1,6 +1,5 @@
 package com.qst.entity;
 
-import com.qst.entity.User;
 import com.qst.util.JedisPoolUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -32,6 +32,42 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
+            /* 遮罩层样式 */
+            .modal-backdrop {
+                @apply fixed top-0 left-0 w-full h-full bg-black/50 flex justify-center items-center z-50;
+            }
+
+            /* 弹窗样式 */
+            .modal-content {
+                @apply bg-white p-6 rounded-xl shadow-lg w-[300px] text-center;
+            }
+
+            /* 按钮通用样式 */
+            .modal-content button {
+                @apply my-2.5 px-4 py-2 w-full cursor-pointer border-none rounded border-gray-300 transition-colors duration-300;
+            }
+
+            /* 匿名按钮样式 */
+            #anonymousBtn {
+                @apply bg-gray-200 hover:bg-gray-300 text-gray-700;
+            }
+
+            /* 预设用户名按钮样式 */
+            #presetNameBtn {
+                @apply bg-primary hover:bg-blue-600 text-white;
+            }
+
+            /* 确认自定义名称按钮样式 */
+            #confirmCustomNameBtn {
+                @apply bg-accent hover:bg-cyan-500 text-white;
+            }
+
+            /* 自定义昵称输入框样式 */
+            #customNameInput {
+                @apply w-full px-4 py-2 mb-2.5 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary;
+            }
+        }
+        @layer utilities {
             .content-auto {
                 content-visibility: auto;
             }
@@ -117,72 +153,152 @@
     var roomName = urlParams.get('room');
 
     // 用户昵称弹窗输入，默认“匿名”
-    var userName = prompt("请输入你的昵称") || '匿名';
+    //var userName = prompt("请输入你的昵称") || '匿名';
+    //var userName = '匿名';
+    var defaultUserName = "<%=session.getAttribute("username") != null ? session.getAttribute("username") : "匿名"%>";
+    var ws;
+    document.addEventListener('DOMContentLoaded', function () {
+        // 创建遮罩层和模态框
+        const backdrop = document.createElement('div');
+        backdrop.className = 'modal-backdrop';
+        document.body.appendChild(backdrop);
 
+        const modalContent = document.createElement('div');
+        modalContent.className = 'modal-content';
+
+        modalContent.innerHTML = `
+        <h2 class="mb-4">请选择或输入您的昵称</h2>
+        <div class="flex items-center mb-4 space-x-2">
+            <input type="text" id="customNameInput" placeholder="自定义昵称..." class="px-4 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-primary">
+            <button id="confirmCustomNameBtn" class="flex-1 px-4 py-2 bg-accent hover:bg-cyan-500 text-white rounded"><i class="fa-solid fa-check"></i></button>
+        </div>
+        <div class="flex space-x-2">
+            <button id="anonymousBtn" class="flex-1 py-2 px-4 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-lg">匿名</button>
+            <button id="presetNameBtn" class="flex-1 py-2 px-4 bg-primary hover:bg-blue-600 text-white rounded-lg">使用用户名</button>
+        </div>
+    `;
+
+        backdrop.appendChild(modalContent);
+
+        // 获取必要的DOM元素
+        const anonymousBtn = document.getElementById('anonymousBtn');
+        const presetNameBtn = document.getElementById('presetNameBtn');
+        const customNameInput = document.getElementById('customNameInput');
+        const confirmCustomNameBtn = document.getElementById('confirmCustomNameBtn');
+
+        var userName = '匿名'; // 默认值为匿名
+
+        // 匿名按钮点击事件
+        anonymousBtn.addEventListener('click', () => {
+            userName = '匿名';
+            initChat(userName);
+            closeModal();
+        });
+
+        // 使用预设用户名按钮点击事件
+        presetNameBtn.addEventListener('click', () => {
+            userName = defaultUserName; // 示例预设用户名
+            initChat(userName);
+            closeModal();
+        });
+
+        // 确认自定义用户名按钮点击事件
+        confirmCustomNameBtn.addEventListener('click', () => {
+            const customName = customNameInput.value.trim();
+            if (customName) {
+                userName = customName;
+                initChat(userName);
+                closeModal();
+            } else {
+                alert('请输入有效的昵称');
+            }
+        });
+
+        function initChat(name){
+            // 关闭模态框函数
+            backdrop.remove();
+            // 拼接WebSocket地址
+            var wsUrl = 'ws://' + location.host + contextPath + '/chat/'
+                + encodeURIComponent(roomName) + '/' + encodeURIComponent(userName);
+
+            console.log("WebSocket连接地址:", wsUrl);
+
+            // 创建WebSocket连接
+            ws = new WebSocket(wsUrl);
+
+            // 处理接收到的消息
+            ws.onmessage = function(event) {
+                try {
+                    // 尝试解析JSON格式的消息
+                    var data = JSON.parse(event.data);
+
+                    if (data.type === 'message') {
+                        // 普通消息：区分自己和他人的消息
+                        addMessage(data.sender, data.content, data.time, data.sender === userName);
+                    } else if (data.type === 'system') {
+                        // 系统消息：统一格式显示
+                        addSystemMessage(data.content);
+                    } else if (data.type === 'join') {
+                        // 用户加入消息
+                        addJoinMessage(data.user, data.time);
+                        updateOnlineCount(data.onlineCount);
+                    } else if (data.type === 'leave') {
+                        // 用户离开消息
+                        addLeaveMessage(data.user, data.time);
+                        updateOnlineCount(data.onlineCount);
+                    }
+                } catch (e) {
+                    // 处理"username|content|time"格式的消息
+                    var parts = event.data.split('|');
+                    if (parts.length >= 2) {
+                        var sender = parts[0];
+                        var content = parts[1];
+                        var time = parts.length > 2 ? parts[2] : new Date().toLocaleTimeString();
+
+                        // 判断是否是系统消息
+                        if (sender === '系统') {
+                            // 检查是否是用户加入或离开的消息
+                            if (content.includes('加入了聊天室')) {
+                                addJoinMessage(content.split(' ')[0], time);
+                                updateOnlineCountFromMessage(content);
+                            } else if (content.includes('离开了聊天室')) {
+                                addLeaveMessage(content.split(' ')[0], time);
+                                updateOnlineCountFromMessage(content);
+                            } else {
+                                addSystemMessage(content);
+                            }
+                        } else {
+                            addMessage(sender, content, time, sender === userName);
+                        }
+                    } else {
+                        // 格式不匹配，作为系统消息显示
+                        addMessage('系统', event.data, new Date().toLocaleTimeString(), false);
+                    }
+                }
+            };
+            ws.onopen = function() {
+                console.log('WebSocket已连接');
+                addSystemMessage('你已加入聊天室');
+            };
+
+            ws.onclose = function() {
+                addSystemMessage('连接已关闭');
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('sendBtn').classList.add('opacity-50', 'cursor-not-allowed');
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket错误:', error);
+                addSystemMessage('连接发生错误');
+            };
+        }
+    });
     // 设置聊天室标题（纯JavaScript实现）
     document.getElementById('roomTitle').textContent = '聊天室：' + roomName;
     document.getElementById('roomName').textContent = roomName;
     document.getElementById('welcomeMsg').textContent = '欢迎来到 ' + roomName;
 
-    // 拼接WebSocket地址
-    var wsUrl = 'ws://' + location.host + contextPath + '/chat/'
-        + encodeURIComponent(roomName) + '/' + encodeURIComponent(userName);
 
-    console.log("WebSocket连接地址:", wsUrl);
-
-    // 创建WebSocket连接
-    var ws = new WebSocket(wsUrl);
-
-    // 处理接收到的消息
-    ws.onmessage = function(event) {
-        try {
-            // 尝试解析JSON格式的消息
-            var data = JSON.parse(event.data);
-
-            if (data.type === 'message') {
-                // 普通消息：区分自己和他人的消息
-                addMessage(data.sender, data.content, data.time, data.sender === userName);
-            } else if (data.type === 'system') {
-                // 系统消息：统一格式显示
-                addSystemMessage(data.content);
-            } else if (data.type === 'join') {
-                // 用户加入消息
-                addJoinMessage(data.user, data.time);
-                updateOnlineCount(data.onlineCount);
-            } else if (data.type === 'leave') {
-                // 用户离开消息
-                addLeaveMessage(data.user, data.time);
-                updateOnlineCount(data.onlineCount);
-            }
-        } catch (e) {
-            // 处理"username|content|time"格式的消息
-            var parts = event.data.split('|');
-            if (parts.length >= 2) {
-                var sender = parts[0];
-                var content = parts[1];
-                var time = parts.length > 2 ? parts[2] : new Date().toLocaleTimeString();
-
-                // 判断是否是系统消息
-                if (sender === '系统') {
-                    // 检查是否是用户加入或离开的消息
-                    if (content.includes('加入了聊天室')) {
-                        addJoinMessage(content.split(' ')[0], time);
-                        updateOnlineCountFromMessage(content);
-                    } else if (content.includes('离开了聊天室')) {
-                        addLeaveMessage(content.split(' ')[0], time);
-                        updateOnlineCountFromMessage(content);
-                    } else {
-                        addSystemMessage(content);
-                    }
-                } else {
-                    addMessage(sender, content, time, sender === userName);
-                }
-            } else {
-                // 格式不匹配，作为系统消息显示
-                addMessage('系统', event.data, new Date().toLocaleTimeString(), false);
-            }
-        }
-    };
 
     // 页面加载时获取初始在线人数
     document.addEventListener('DOMContentLoaded', function() {
@@ -199,22 +315,6 @@
                 });
         }
     });
-
-    ws.onopen = function() {
-        console.log('WebSocket已连接');
-        addSystemMessage('你已加入聊天室');
-    };
-
-    ws.onclose = function() {
-        addSystemMessage('连接已关闭');
-        document.getElementById('sendBtn').disabled = true;
-        document.getElementById('sendBtn').classList.add('opacity-50', 'cursor-not-allowed');
-    };
-
-    ws.onerror = function(error) {
-        console.error('WebSocket错误:', error);
-        addSystemMessage('连接发生错误');
-    };
 
     // 添加消息到聊天框 - 完全避免JSP EL表达式
     function addMessage(sender, content, time, isSelf) {

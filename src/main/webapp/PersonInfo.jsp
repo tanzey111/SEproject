@@ -141,6 +141,16 @@
             transform: translateY(-2px);
         }
 
+        .btn-tohome {
+            background-color: var(--secondary);
+            color: white;
+        }
+
+        .btn-tohome:hover {
+            background-color: var(--secondary-dark);
+            transform: translateY(-2px);
+        }
+
         .btn-logout {
             background-color: var(--secondary);
             color: white;
@@ -373,6 +383,9 @@
         <button class="btn btn-edit" onclick="togglePasswordModal()">
             <i class="fas fa-key"></i> 修改密码
         </button>
+        <button id="tohomebtn" class="btn btn-tohome">
+            <i class="fa-solid fa-house"></i> 主界页
+        </button>
         <button id="logoutbtn" class="btn btn-logout">
             <i class="fas fa-sign-out-alt"></i> 登出
         </button>
@@ -507,6 +520,12 @@
                 console.error('登出请求失败:', error);
                 showToast('登出失败，请重试');
             });
+    });
+
+    // 回到主页功能
+    document.getElementById('tohomebtn').addEventListener('click', function() {
+        const contextPath = '<%= request.getContextPath() %>';
+        window.location.href = contextPath + '/home.jsp';
     });
 
     // 关闭模态框当点击外面

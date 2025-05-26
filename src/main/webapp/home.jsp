@@ -157,10 +157,11 @@
         <!-- 用户头像区域 -->
         <div class="flex items-center space-x-4">
             <div class="relative group">
-                <a href="<%= request.getContextPath() %>/Sign.jsp" class="flex items-center space-x-2 avatar-hover">
+                <%String username = (String) session.getAttribute("username");%>
+                <a href="<%= request.getContextPath() %>/<%= username != null ? "PersonInfo.jsp" : "Sign.jsp" %>" class="flex items-center space-x-2 avatar-hover">
                     <div class="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
                         <%
-                            String username = (String) session.getAttribute("username");
+                            //String username = (String) session.getAttribute("username");
                             if (username != null) {
                                 // 用户已登录，显示用户头像
                                 com.example.chat.Item.User user = com.example.chat.util.RedisUtil.getUserByUsername(username);
@@ -302,7 +303,7 @@
                             // 创建删除按钮
                             const deleteBtn = document.createElement('button');
                             deleteBtn.className = 'delete-btn';
-                            deleteBtn.innerHTML = '<i class="fa fa-trash"></i> 删除';
+                            deleteBtn.innerHTML = '<i class="fa fa-trash"></i>';
                             deleteBtn.addEventListener('click', async () => {
                                 if (confirm('确定要删除该聊天室吗？此操作将移除所有聊天记录！')) {
                                     try {
@@ -396,6 +397,7 @@
             alert('请输入聊天室名称');
             return;
         }
+
         fetch(contextPath + '/createRoom', {
             method: 'POST',
             headers: {
@@ -405,14 +407,29 @@
         })
             .then(res => {
                 if (res.ok) {
+                    // 成功创建聊天室
                     fetchRooms();
                     loadChatRoom(roomName);
                     document.getElementById('newRoomName').value = '';
-                } else {
-                    res.text().then(msg => {
-                        alert('创建失败: ' + msg);
-                    });
+                    return;
                 }
+
+                // 失败处理：尝试解析为 JSON 或文本
+                return res.json()
+                    .then(data => {
+                        // 如果是 JSON 格式错误信息
+                        if (data.error) {
+                            alert(data.error); // 显示具体的中文错误信息
+                        } else {
+                            alert("创建失败");
+                        }
+                    })
+                    .catch(() => {
+                        // 如果不是 JSON，则尝试用文本方式读取
+                        return res.text().then(text => {
+                            alert("创建失败: " + text);
+                        });
+                    });
             })
             .catch(error => {
                 console.error('创建聊天室失败:', error);
