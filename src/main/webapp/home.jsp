@@ -59,9 +59,14 @@
                 background-color: #ffffff;
                 border-radius: 16px;
                 box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-                padding: 40px 32px;
+                padding: 24px;
+                display: flex;
+                flex-direction: column;
+                gap: 24px;
             }
+
             .room-item {
+                @apply flex flex-col items-start gap-3;
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
@@ -70,6 +75,9 @@
                 border-radius: 12px;
                 margin-bottom: 12px;
                 transition: all 0.2s ease;
+            }
+            .room-actions{
+                @apply flex justify-end w-full gap-3;
             }
             .room-item:hover {
                 background-color: #edf2f7;
@@ -197,6 +205,7 @@
 </header>
 <!-- 主内容区 -->
 <main class="flex-1 container mx-auto px-4 py-8 layout-container">
+
     <!-- 左侧聊天室列表 -->
     <div class="chat-list">
         <div class="mb-8">
@@ -228,11 +237,6 @@
         <!-- 聊天室内容将通过iframe动态加载 -->
     </div>
 </main>
-<footer class="bg-white border-t border-gray-200 py-6">
-    <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
-        <p>© 2025 实时聊天室. 保留所有权利.</p>
-    </div>
-</footer>
 <script>
     const contextPath = '<%= request.getContextPath() %>';
     const chatRoomContainer = document.getElementById('chatRoomContainer');
@@ -247,15 +251,14 @@
                 ul.innerHTML = '';
                 if (data.length === 0) {
                     ul.innerHTML = `
-                        <li class="text-center py-10 text-gray-500">
-                            <i class="fa fa-inbox text-4xl mb-3 opacity-30"></i>
-                            <p>暂无可用聊天室，请创建一个新的聊天室</p>
-                        </li>
-                    `;
+                    <li class="text-center py-10 text-gray-500">
+                        <i class="fa fa-inbox text-4xl mb-3 opacity-30"></i>
+                        <p>暂无可用聊天室，请创建一个新的聊天室</p>
+                    </li>
+                `;
                     return;
                 }
 
-                // 批量获取所有房间的在线人数
                 fetch(contextPath + '/onlineCount')
                     .then(res => res.json())
                     .then(countData => {
@@ -264,58 +267,60 @@
                         data.forEach(room => {
                             const li = document.createElement('li');
                             li.className = 'room-item card-hover';
-                            const link = document.createElement('a');
-                            link.href = "#";
-                            link.className = 'flex items-center w-full';
-                            link.dataset.room = room;
 
-                            const roomInfo = document.createElement('div');
-                            roomInfo.className = 'flex items-center';
+                            const header = document.createElement('div');
+                            header.className = 'flex items-center w-full cursor-pointer';
 
                             const icon = document.createElement('div');
                             icon.className = 'w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center mr-4';
                             icon.innerHTML = '<i class="fa fa-comments text-primary"></i>';
 
                             const roomName = document.createElement('div');
-                            roomName.className = 'room-name';
-
-                            // 添加在线人数显示
-                            const onlineCount = document.createElement('span');
-                            onlineCount.className = 'online-count';
-
-                            // 使用JavaScript变量和字符串拼接，避免JSP解析问题
-                            const countValue = counts[room] !== undefined ? counts[room] : 0;
-                            onlineCount.innerHTML = '<i class="fa fa-user mr-1"></i> ' + countValue;
+                            roomName.className = 'room-name flex items-center';
 
                             const nameText = document.createElement('span');
                             nameText.textContent = room;
 
-                            roomName.appendChild(onlineCount);
-                            roomName.appendChild(nameText);
+                            const onlineCount = document.createElement('span');
+                            onlineCount.className = 'online-count ml-2';
+                            const countValue = counts[room] !== undefined ? counts[room] : 0;
+                            onlineCount.innerHTML = '<i class="fa fa-user mr-1"></i>' + countValue;
 
-                            roomInfo.appendChild(icon);
-                            roomInfo.appendChild(roomName);
+                            roomName.appendChild(nameText);
+                            roomName.appendChild(onlineCount);
+                            header.appendChild(icon);
+                            header.appendChild(roomName);
+
+                            const actions = document.createElement('div');
+                            actions.className = 'room-actions';
 
                             const joinBtn = document.createElement('button');
                             joinBtn.className = 'join-btn bg-primary hover:bg-secondary text-white px-4 py-1.5 rounded-lg text-sm transition-colors';
                             joinBtn.innerHTML = '<i class="fa fa-arrow-right mr-1"></i> 进入';
 
-                            // 创建删除按钮
                             const deleteBtn = document.createElement('button');
                             deleteBtn.className = 'delete-btn';
                             deleteBtn.innerHTML = '<i class="fa fa-trash"></i>';
-                            deleteBtn.addEventListener('click', async () => {
+
+                            const openRoom = () => loadChatRoom(room);
+
+                            header.addEventListener('click', openRoom);
+                            joinBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                openRoom();
+                            });
+
+                            deleteBtn.addEventListener('click', async (e) => {
+                                e.stopPropagation();
                                 if (confirm('确定要删除该聊天室吗？此操作将移除所有聊天记录！')) {
                                     try {
-                                        // 在删除前再次验证房间是否存在
                                         const exists = await checkRoomExists(room);
                                         if (!exists) {
                                             alert('该聊天室已不存在，可能已被其他用户删除。');
-                                            fetchRooms(); // 刷新房间列表
+                                            fetchRooms();
                                             return;
                                         }
 
-                                        // 执行删除操作
                                         const res = await fetch(contextPath + '/deleteRoom', {
                                             method: 'POST',
                                             headers: {
@@ -327,9 +332,8 @@
                                         if (res.ok) {
                                             const msg = await res.text();
                                             alert(msg);
-                                            fetchRooms(); // 刷新房间列表
+                                            fetchRooms();
 
-                                            // 关闭已删除的房间
                                             const activeIframe = document.querySelector('#chatRoomContainer iframe');
                                             if (activeIframe && activeIframe.src.includes('room=' + encodeURIComponent(room))) {
                                                 document.getElementById('chatRoomContainer').innerHTML = '';
@@ -346,35 +350,29 @@
                                 }
                             });
 
-                            link.appendChild(roomInfo);
-                            link.appendChild(joinBtn);
-                            link.appendChild(deleteBtn);
-                            li.appendChild(link);
-                            ul.appendChild(li);
+                            actions.appendChild(joinBtn);
+                            actions.appendChild(deleteBtn);
 
-                            link.addEventListener('click', () => {
-                                loadChatRoom(room);
-                            });
+                            li.appendChild(header);
+                            li.appendChild(actions);
+                            ul.appendChild(li);
                         });
                     })
                     .catch(error => {
                         console.error('获取在线人数失败:', error);
-                        // 继续显示房间列表，但不显示在线人数
-                        data.forEach(room => {
-                            // 房间项创建代码保持不变...
-                        });
                     });
             })
             .catch(error => {
                 console.error('获取聊天室列表失败:', error);
                 document.getElementById('roomList').innerHTML = `
-                    <li class="text-center py-10 text-gray-500">
-                        <i class="fa fa-exclamation-triangle text-2xl mb-3 text-red-400"></i>
-                        <p>加载聊天室列表失败，请刷新页面重试</p>
-                    </li>
-                `;
+                <li class="text-center py-10 text-gray-500">
+                    <i class="fa fa-exclamation-triangle text-2xl mb-3 text-red-400"></i>
+                    <p>加载聊天室列表失败，请刷新页面重试</p>
+                </li>
+            `;
             });
     }
+
 
     // 定时刷新在线人数
     setInterval(fetchRooms, 5000); // 每5秒刷新一次
